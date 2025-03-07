@@ -26,11 +26,14 @@ main(int argc, char *argv[])
 {
   int fd, i;
 
+  // only one arg, like 'cat', means it's intput has benn redirected
+  // so cat the standard intput which has been redirected
   if(argc <= 1){
     cat(0);
     exit(0);
   }
 
+  // more than one arg, try to open each file and print it
   for(i = 1; i < argc; i++){
     if((fd = open(argv[i], 0)) < 0){
       fprintf(2, "cat: cannot open %s\n", argv[i]);

@@ -34,6 +34,7 @@ fetchstr(uint64 addr, char *buf, int max)
 static uint64
 argraw(int n)
 {
+  // get the current proc *, or zero if none
   struct proc *p = myproc();
   switch (n) {
   case 0:
@@ -57,6 +58,7 @@ argraw(int n)
 int
 argint(int n, int *ip)
 {
+  // fetch the nth uint64 and turn it to int
   *ip = argraw(n);
   return 0;
 }
