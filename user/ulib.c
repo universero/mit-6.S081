@@ -134,3 +134,44 @@ memcpy(void *dst, const void *src, uint n)
 {
   return memmove(dst, src, n);
 }
+
+
+char*
+strtok(char* src, const char* delim)
+{
+  static char* last = 0;
+
+  if (src != 0)
+    last = src;
+
+  if (last == 0)
+    return 0;
+
+  // 跳过开头的分隔符
+  for (; *last != '\0' && strchr(delim, *last) != 0; last++);
+
+  // 如果到达字符串末尾，返回 NULL
+  if (*last == '\0')
+  {
+    return 0;
+  }
+
+  // 找到子字符串的起始位置
+  char* token_start = last;
+  // 找到下一个分隔符的位置
+  for (; *last != '\0' && strchr(delim, *last) == 0; last++);
+
+  // 如果找到分隔符，将其替换为 \0，并更新 last 的位置
+  if (*last != '\0')
+  {
+    *last = '\0';
+    last++;
+  }
+  else
+  {
+    // 如果没有找到分隔符，说明这是最后一个子字符串
+    last = 0;
+  }
+
+  return token_start;
+}
