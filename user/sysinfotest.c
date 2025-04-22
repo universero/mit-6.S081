@@ -42,33 +42,33 @@ void
 testmem() {
   struct sysinfo info;
   uint64 n = countfree();
-  
+
   sinfo(&info);
 
   if (info.freemem!= n) {
     printf("FAIL: free mem %d (bytes) instead of %d\n", info.freemem, n);
     exit(1);
   }
-  
+
   if((uint64)sbrk(PGSIZE) == 0xffffffffffffffff){
     printf("sbrk failed");
     exit(1);
   }
 
   sinfo(&info);
-    
+
   if (info.freemem != n-PGSIZE) {
     printf("FAIL: free mem %d (bytes) instead of %d\n", n-PGSIZE, info.freemem);
     exit(1);
   }
-  
+
   if((uint64)sbrk(-PGSIZE) == 0xffffffffffffffff){
     printf("sbrk failed");
     exit(1);
   }
 
   sinfo(&info);
-    
+
   if (info.freemem != n) {
     printf("FAIL: free mem %d (bytes) instead of %d\n", n, info.freemem);
     exit(1);
@@ -78,7 +78,7 @@ testmem() {
 void
 testcall() {
   struct sysinfo info;
-  
+
   if (sysinfo(&info) < 0) {
     printf("FAIL: sysinfo failed\n");
     exit(1);
@@ -95,7 +95,7 @@ void testproc() {
   uint64 nproc;
   int status;
   int pid;
-  
+
   sinfo(&info);
   nproc = info.nproc;
 

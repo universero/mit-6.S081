@@ -6,6 +6,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "sysinfo.h"
 
 uint64
 sys_exit(void)
@@ -106,5 +107,26 @@ sys_trace(void)
     return -1;
   // 设置mask
   myproc()->mask = mask;
+  return 0;
+}
+
+uint64
+sys_sysinfo(void)
+{
+  uint64 addr;
+  struct proc* p = myproc();
+
+  // 获取传入的指针
+  if(argaddr(0, &addr) < 0)
+    return -1;
+
+  // 填充sysinfo结构体
+  struct sysinfo sysi;
+  sysi.freemem = c_freemem();
+  sysi.nproc = c_nproc();
+
+  // 拷贝到指定位置
+  if (copyout(p->pagetable,addr,(char *)&sysi,sizeof(sysi))<0)
+    return -1;
   return 0;
 }
