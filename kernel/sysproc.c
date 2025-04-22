@@ -95,3 +95,16 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// 将需要追踪的系统调用记录在进程结构中
+uint64
+sys_trace(void)
+{
+  int mask;
+  // 尝试获取mask
+  if (argint(0, &mask) < 0)
+    return -1;
+  // 设置mask
+  myproc()->mask = mask;
+  return 0;
+}

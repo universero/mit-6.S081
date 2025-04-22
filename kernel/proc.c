@@ -305,6 +305,9 @@ fork(void)
 
   pid = np->pid;
 
+  // 复制mask
+  np->mask = p->mask;
+
   release(&np->lock);
 
   acquire(&wait_lock);
