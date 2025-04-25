@@ -432,3 +432,25 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
+void vmprint_(pagetable_t pagetable,char * depth)
+{
+  for (int i=0; i<512; i++){
+    pte_t pte = pagetable[i];
+    if ((pte & PTE_V) && ((pte & (PTE_R|PTE_W|PTE_X)) == 0)){
+      printf(" ..%s%d: pte %p pa %p\n",depth,i,pte,PTE2PA(pte));
+      // 有子表
+      uint64 child = PTE2PA(pte);
+      vmprint_((pagetable_t)child," ..");
+    }else if (pte&PTE_V){
+      // 有效的叶子节点
+      printf(" .. ..%s%d: pte %p pa %p\n",depth,i,pte,PTE2PA(pte));
+    }
+  }
+}
+
+void vmprint(pagetable_t pagetable)
+{
+  vmprint_(pagetable,"");
+}
+
