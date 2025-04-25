@@ -46,7 +46,7 @@ sys_sbrk(void)
 
   if(argint(0, &n) < 0)
     return -1;
-  
+
   addr = myproc()->sz;
   if(growproc(n) < 0)
     return -1;
@@ -80,7 +80,31 @@ sys_sleep(void)
 int
 sys_pgaccess(void)
 {
-  // lab pgtbl: your code here.
+  uint64 va, buf;
+  int n;
+  uint tmp = 0;
+  struct proc* p = myproc();
+  // 解析参数: 开始的虚拟地址, 需要检查的页数, 用户缓冲区地址(unsigned int*)
+  if (argaddr(0, &va) < 0)
+    return -1;
+  if (argint(1, &n) < 0 || n < 0 || va+n*PGSIZE >= MAXVA) // 限制了最大值
+    return -1;
+  if (argaddr(2, &buf) < 0)
+    return -1;
+  // 统计访问
+  for (uint i=0;i<n;i++){
+    // 找到PTE
+    pte_t* pte = walk(p->pagetable,va+i*PGSIZE,0);
+    if(pte) {
+      // 校验PTE_A
+      if ((*pte>>6 & 1) ==1){
+        tmp |= 1<<i;
+      }
+      *pte = *pte&~(PTE_A);
+    }
+  }
+  // 复制到用户缓冲区中
+  copyout(p->pagetable,buf,(char *)&tmp,sizeof(uint));
   return 0;
 }
 #endif
