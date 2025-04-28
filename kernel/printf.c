@@ -132,3 +132,14 @@ printfinit(void)
   initlock(&pr.lock, "pr");
   pr.locking = 1;
 }
+
+void
+backtrace(void)
+{
+  // 获取当前栈指针
+  uint64 st = r_fp();
+  while (st>PGROUNDDOWN(st)&&st<PGROUNDUP(st)) {
+    printf("%p\n", *(uint64 *)(st-8));
+    st = *(uint64 *)(st-16);
+  }
+}
