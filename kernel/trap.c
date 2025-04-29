@@ -67,8 +67,8 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else if ((r_scause()==15 || r_scause()==13)&&uvmcheckcow(r_stval())){ // store page fault 或者 load page fault 且 是cow页
-      if (pagefaulthandler(r_stval())==-1)
+  } else if ((r_scause()==15 || r_scause()==13)){ // store page fault 或者 load page fault
+    if (pagefaulthandler(r_stval())==-1)
         p->killed = 1;
   }else{
       printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
@@ -224,22 +224,9 @@ devintr()
 int
 pagefaulthandler(uint64 va)
 {
-  pte_t* pte;
-  struct proc *p = myproc();
-  if ((pte= walk(p->pagetable, va, 0))==0)
-    panic("pagefaulthandler: walk");
-
-  uint64 pa = PTE2PA(*pte);
-  // 多个引用时, 需要给当前访问这个页的分配一个实际的物理页
-  uint64 npa = (uint64)kcopy((void *)pa);
-  if (npa == 0 )
-    return -1;
-
-  // 解除映射, 同时dofree设置为1会调用kfree, 减少这个物理页的引用
-  uint64 flags = (PTE_FLAGS(*pte) | PTE_W) & ~PTE_COW;
-  uvmunmap(p->pagetable,PGROUNDDOWN(va),1,0);
-  // 重新建立映射
-  if (mappages(p->pagetable,va,1,npa,flags) == -1)
-    panic("pagefaulthandler: mappages");
-  return 0;
+  if (uvmcheckcow(va))
+    return uvmcopycow(va);
+  if (uvmchecklazy(va))
+    return uvmalloclazy(va);
+  return -1;
 }

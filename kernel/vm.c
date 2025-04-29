@@ -83,7 +83,9 @@ pte_t *
 walk(pagetable_t pagetable, uint64 va, int alloc)
 {
   if(va >= MAXVA)
-    panic("walk");
+  {
+    printf("walk va:%p\n",va);panic("walk");
+  }
 
   for(int level = 2; level > 0; level--) {
     pte_t *pte = &pagetable[PX(level, va)];
@@ -169,15 +171,14 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 {
   uint64 a;
   pte_t *pte;
-
   if((va % PGSIZE) != 0)
     panic("uvmunmap: not aligned");
 
   for(a = va; a < va + npages*PGSIZE; a += PGSIZE){
     if((pte = walk(pagetable, a, 0)) == 0)
-      panic("uvmunmap: walk");
+      continue;
     if((*pte & PTE_V) == 0)
-      panic("uvmunmap: not mapped");
+      continue;
     if(PTE_FLAGS(*pte) == PTE_V)
       panic("uvmunmap: not a leaf");
     if(do_free){
@@ -309,9 +310,9 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
-      panic("uvmcopy: pte should exist");
+      continue;
     if((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
+      continue;
     pa = PTE2PA(*pte);
     // if((mem = kalloc()) == 0)
     //   goto err;
@@ -361,8 +362,7 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
   uint64 n, va0, pa0;
 
   while(len > 0){
-    if (uvmcheckcow(dstva))
-      pagefaulthandler(dstva);
+    pagefaulthandler(dstva);
     va0 = PGROUNDDOWN(dstva);
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0)
@@ -388,6 +388,7 @@ copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
   uint64 n, va0, pa0;
 
   while(len > 0){
+    pagefaulthandler(srcva);
     va0 = PGROUNDDOWN(srcva);
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0)
@@ -447,13 +448,67 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   }
 }
 
-int uvmcheckcow(uint64 va)
+int
+uvmcheckcow(uint64 va)
 {
   pte_t *pte;
   struct proc *p = myproc();
 
   return va < p->sz // 在进程内存范围内
+    && va < MAXVA
     && ((pte = walk(p->pagetable, va, 0))!=0)
     && (*pte & PTE_V) // 页表项存在
     && (*pte & PTE_COW); // 页是一个懒复制页
+}
+
+int
+uvmcopycow(uint64 va)
+{
+  pte_t* pte;
+  struct proc *p = myproc();
+  if ((pte= walk(p->pagetable, va, 0))==0)
+    panic("pagefaulthandler: walk");
+
+  uint64 pa = PTE2PA(*pte);
+  // 多个引用时, 需要给当前访问这个页的分配一个实际的物理页
+  uint64 npa = (uint64)kcopy((void *)pa);
+  if (npa == 0 )
+    return -1;
+
+  // 解除映射, 同时dofree设置为1会调用kfree, 减少这个物理页的引用
+  uint64 flags = (PTE_FLAGS(*pte) | PTE_W) & ~PTE_COW;
+  uvmunmap(p->pagetable,PGROUNDDOWN(va),1,0);
+  // 重新建立映射
+  if (mappages(p->pagetable,va,1,npa,flags) == -1)
+    panic("pagefaulthandler: mappages");
+  return 0;
+}
+
+int
+uvmchecklazy(uint64 va)
+{
+  pte_t *pte;
+  struct proc *p = myproc();
+
+  return va < p->sz // within size of memory for the process
+    && PGROUNDDOWN(va) != r_sp() // not accessing stack guard page (it shouldn't be mapped)
+    && va < MAXVA
+    && (((pte = walk(p->pagetable, va, 0))==0) || ((*pte & PTE_V)==0)); // page table entry does not exist
+}
+
+int
+uvmalloclazy(uint64 va)
+{
+  struct proc *p = myproc();
+  uint64 pa;
+  // 分配地址
+  if ((pa = (uint64)kalloc())==0)
+    return -1;
+  // 创建映射
+  memset((void *)pa, 0, PGSIZE);
+  if (mappages(p->pagetable,PGROUNDDOWN(va),1,pa,PTE_W|PTE_X|PTE_R|PTE_U)!=0){
+    kfree((void *)pa);
+    return -1;
+  }
+  return 0;
 }
